@@ -3,11 +3,35 @@
 import fetch from "node-fetch";
 import { spawn } from "child_process";
 import net from "net";
+import http from "http";
 
+const capabilities = {
+	platformName: "iOS",
+	"safari:useSimulator": true,
+	"safari:deviceType": "iPhone",
+};
+
+/*
+{
+	browserName: "Safari", // per safaridriver man page
+	platformName: "iOS", // per safaridriver man page
+	"safari:platformVersion": "13.6",
+	"safari:useSimulator": true,
+	"safari:deviceType": "iPhone",
+}
+*/
+
+/**
+ * zzz
+ * @param ms
+ */
 function sleep(ms: number) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * Gets a free port number for later use
+ */
 async function GetFreePort(): Promise<number> {
 	return new Promise((resolve, reject) => {
 		const server = net.createServer((socket) => {
@@ -27,6 +51,10 @@ async function GetFreePort(): Promise<number> {
 	});
 }
 
+/**
+ * Starts the safaridriver service on the specified port
+ * @param port Target port
+ */
 async function StartService(port: number) {
 	const executable_path = "/usr/bin/safaridriver";
 	const proc = spawn(executable_path, ["--port", port.toString()], {
@@ -58,15 +86,16 @@ async function StartService(port: number) {
 	return proc;
 }
 
+/**
+ * Example function to create a webdriver session using the specified information. Uses node-fetch.
+ * @param server_addr
+ * @param port
+ */
 async function CreateSession(server_addr: string, port: number) {
 	const body = {
 		capabilities: {
-			alwaysMatch: {
-				platformName: "iOS",
-				"safari:useSimulator": true,
-				"safari:deviceType": "iPhone",
-			},
-		},
+            alwaysMatch: capabilities
+        },
 	};
 
 	console.log("Creating session...");
@@ -82,14 +111,60 @@ async function CreateSession(server_addr: string, port: number) {
 	console.log(JSON.stringify(obj, null, 4));
 }
 
-(async () => {
+/**
+ * Barebones test function for creating a session using the specified info.
+ * Requires no non-standard dependencies.
+ * @param port
+ */
+async function CreateSessionBarebones(port: number) {
+	const data = JSON.stringify({
+		capabilities: {
+            alwaysMatch: capabilities
+        },
+	});
+
+	const options: http.RequestOptions = {
+		hostname: "localhost",
+		protocol: "http:",
+		port: port,
+		path: "/session",
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+			"Content-Length": data.length,
+		},
+	};
+
+	const req = http.request(options, (res) => {
+		console.log(`statusCode: ${res.statusCode} ${res.statusMessage}`);
+
+		res.on("data", (d: Buffer) => {
+			const sessionInfo = JSON.parse(d.toString());
+			console.log(JSON.stringify(sessionInfo, null, 4));
+		});
+	});
+
+	req.on("error", (error) => {
+		console.error(error);
+	});
+
+	req.write(data);
+	req.end();
+}
+
+(async (barebones: boolean) => {
 	const port = await GetFreePort();
 	const service = await StartService(port);
 
 	// Wait for the service to start up all the way
 	await sleep(1000);
 
+	if (barebones) {
+		CreateSessionBarebones(port);
+		return;
+	}
+
 	await CreateSession("http://localhost", port);
 	await sleep(1000);
 	await service.kill();
-})();
+})(true);
