@@ -40,6 +40,13 @@ jobs:
           ${{ runner.os }}-build-
           ${{ runner.os }}-
     
+    - name: Enable SafariDriver
+      run: |
+        defaults write com.apple.Safari IncludeDevelopMenu YES
+        defaults write com.apple.Safari AllowRemoteAutomation 1
+        sudo safaridriver --enable
+        safaridriver -p 0 &
+
     - name: Install Packages
       run: npm ci
 
