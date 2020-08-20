@@ -94,8 +94,8 @@ async function StartService(port: number) {
 async function CreateSession(server_addr: string, port: number) {
 	const body = {
 		capabilities: {
-            alwaysMatch: capabilities
-        },
+			alwaysMatch: capabilities,
+		},
 	};
 
 	console.log("Creating session...");
@@ -104,6 +104,10 @@ async function CreateSession(server_addr: string, port: number) {
 		body: JSON.stringify(body),
 		headers: { "Content-Type": "application/json" },
 	});
+
+    if (res.status !== 200){
+        throw new Error("Unable to start session");
+    }
 
 	const obj = await res.json();
 
@@ -119,8 +123,8 @@ async function CreateSession(server_addr: string, port: number) {
 async function CreateSessionBarebones(port: number) {
 	const data = JSON.stringify({
 		capabilities: {
-            alwaysMatch: capabilities
-        },
+			alwaysMatch: capabilities,
+		},
 	});
 
 	const options: http.RequestOptions = {
@@ -141,6 +145,12 @@ async function CreateSessionBarebones(port: number) {
 		res.on("data", (d: Buffer) => {
 			const sessionInfo = JSON.parse(d.toString());
 			console.log(JSON.stringify(sessionInfo, null, 4));
+		});
+
+		res.on("end", () => {
+			if (res.statusCode !== 200) {
+				throw new Error("Unable to start session");
+			}
 		});
 	});
 
